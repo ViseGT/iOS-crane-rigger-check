@@ -1,1 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>起重機作業前自檢表</title>
+    
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="起重機檢查">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    
+    <meta name="theme-color" content="#2c3e50">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        /* === 全局樣式 === */
+        body { 
+            padding: 15px; 
+            padding-bottom: 120px; 
+            background-color: #e9ecef; 
+            font-family: -apple-system, "Microsoft JhengHei", "Heiti TC", sans-serif; 
+            color: #333; 
+            /* 防止 iOS 橡皮筋迴彈效果 */
+            overscroll-behavior-y: none;
+        }
+        
+        #app-container { max-width: 800px; margin: 0 auto; }
+        
+        .card-box { 
+            background: white; padding: 20px; border-radius: 12px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; position: relative;
+        }
+        .app-header { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
+        .app-title { font-size: 1.5rem; font-weight: 900; color: #2c3e50; }
+        .section-title { font-size: 1.1rem; font-weight: bold; color: #0d6efd; margin-bottom: 15px; border-left: 4px solid #0d6efd; padding-left: 10px;}
+        label { font-weight: bold; color: #555; margin-bottom: 5px; display: block; font-size: 0.95rem; }
+        input[type="text"], input[type="date"], select { 
+            width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; 
+            font-size: 16px; margin-bottom: 15px; background: #fff; 
+        }
+        .panel-row { 
+            background: white; margin-bottom: 15px; padding: 15px; border-radius: 12px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 6px solid #ccc; 
+        }
+        .panel-row.completed { border-left-color: #198754; } 
+        .panel-row.error { border-left-color: #dc3545; background-color: #fff8f8; }
+        .item-title { font-weight: bold; font-size: 1.1rem; color: #222; margin-bottom: 10px; line-height: 1.4; }
+
+        .illustration-container {
+            text-align: center; margin-bottom: 15px; padding: 10px;
+            background-color: #f8f9fa; border-radius: 8px; border: 2px dashed #dee2e6;
+        }
+        .illustration-img {
+            max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px; border: 1px solid #eee;
+        }
+
+        .btn-check-group { display: flex; gap: 5px; width: 100%; }
+        .btn-check-group input { display: none; }
+        .btn-check-label { 
+            flex: 1; text-align: center; padding: 12px; border: 1px solid #ced4da; 
+            border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: bold; 
+            background: #fff; color: #666; transition: 0.2s;
+        }
+        .btn-check-pass:checked + label { background: #198754; color: white; border-color: #198754; }
+        .btn-check-fail:checked + label { background: #dc3545; color: white; border-color: #dc3545; }
+        .preview-container { text-align: center; margin-top: 10px; }
+        .preview-img { max-width: 100%; height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid #ddd; display: none; margin-top: 5px; }
+        
+        .sig-wrapper { 
+            width: 100%; height: 180px; border: 2px dashed #bbb; border-radius: 8px; 
+            background: #fff; touch-action: none; position: relative;
+        }
+        canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+        .sig-error { border-color: #dc3545; background: #fff5f5; }
+        .fab-container { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 1000; align-items: flex-end; }
+        .btn-float { 
+            padding: 12px 20px; border-radius: 50px; color: white; font-weight: bold; border: none; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer; min-width: 120px; font-size: 1rem;
+        }
+        .btn-main { background: linear-gradient(135deg, #0d6efd, #0b5ed7); }
+        .btn-warn { background: linear-gradient(135deg, #dc3545, #b02a37); font-size: 0.9rem; min-width: 100px; }
+        
+        /* 安裝提示 (iOS用) */
+        #ios-install-prompt {
+            display: none;
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: white; padding: 20px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 2000; text-align: center;
+        }
+        #ios-install-prompt p { margin-bottom: 10px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div class="fab-container" id="fab-menu">
+    <button type="button" class="btn-float btn-main" onclick="downloadReport()">📥 下載報告</button>
+    <button type="button" class="btn-float btn-warn" onclick="clearDraft()">🗑️ 清除重填</button>
+</div>
+
+<div class="container" id="app-container">
+    <form id="checkForm">
+        <div class="card-box">
+            <div class="app-header">
+                <div class="app-title">🏗️ 起重機作業前自檢表</div>
+                <small id="autoSaveStatus" style="color:#198754; display:none; font-weight:bold;">✅ 已自動儲存</small>
+            </div>
+            <div class="section-title">1. 作業基本資料 (必填)</div>
+            <div class="row">
+                <div class="col-12"><label>檢查日期 Date</label><input type="date" id="checkDate"></div>
+            </div>
+            <div class="row">
+                <div class="col-6"><label>1. 主承商 Main Contractor</label><input type="text" id="mainContractor" placeholder="輸入主承商..." oninput="autoSave()"></div>
+                <div class="col-6"><label>2. 次承商 Sub Contractor</label><input type="text" id="subContractor" placeholder="輸入次承商..." oninput="autoSave()"></div>
+            </div>
+            <div class="row">
+                <div class="col-6"><label>3. 檢查人員 Inspector</label><input type="text" id="inspectorName" placeholder="輸入姓名..." oninput="autoSave()"></div>
+                <div class="col-6"><label>4. 吊掛點位 Lifting Point</label><input type="text" id="liftingPoint" placeholder="輸入點位..." oninput="autoSave()"></div>
+            </div>
+        </div>
+
+        <div id="panelList"></div>
+
+        <div class="card-box" id="sig-section">
+            <div class="section-title">3. 簽名確認 Signature (必填)</div>
+            <div class="sig-wrapper" id="sig-container">
+                <canvas id="sig-canvas"></canvas>
+            </div>
+            <div style="margin-top:10px; text-align:right;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSignature()">↺ 清除重簽</button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div id="ios-install-prompt">
+    <p>📲 <strong>安裝到手機：</strong><br>點擊下方分享按鈕 <img src="https://img.icons8.com/ios-glyphs/30/000000/share-rounded.png" style="width:20px; vertical-align:middle;">，然後選擇「加入主畫面」</p>
+    <button class="btn btn-sm btn-outline-dark" onclick="document.getElementById('ios-install-prompt').style.display='none'">關閉</button>
+</div>
+
+<script>
+    // 註冊 Service Worker (PWA 核心)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered!', reg))
+                .catch(err => console.log('SW failed', err));
+        });
+    }
+
+    // 檢測是否為 iOS 且未安裝，顯示提示
+    const isIos = () => {
+        const userAgent = window.navigator.userAgent.toLowerCase();
+        return /iphone|ipad|ipod/.test(userAgent);
+    }
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+
+    if (isIos() && !isInStandaloneMode()) {
+        // 稍微延遲顯示提示，避免干擾
+        setTimeout(() => {
+            document.getElementById('ios-install-prompt').style.display = 'block';
+        }, 2000);
+    }
+
+    // 1. 資料設定
+    const QUESTIONS = [
+        { title: "1. 吊掛鉤頭插銷是否完全插入？", image: "demo1.jpg" },
+        { title: "2. 吊鉤防滑舌片是否無變形？", image: "demo2.jpg" },
+        { title: "3. 過捲預防裝置是否功能正常？", image: "" },
+        { title: "4. 吊掛索具是否無斷絲、斷股？", image: "" },
+        { title: "5. 作業範圍內是否已完成人員淨空？", image: "" },
+        { title: "6. 吊掛作業是否由合格吊掛手指揮？", image: "" }
+    ];
+
+    const DB_NAME = "CraneCheckDB_V3"; 
+    const DB_VERSION = 1; 
+    let db;
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => { db = e.target.result; if(!db.objectStoreNames.contains("drafts")) db.createObjectStore("drafts", { keyPath: "id" }); };
+    request.onsuccess = (e) => { db = e.target.result; initPage(); };
+
+    // 2. 簽名板
+    const canvas = document.getElementById('sig-canvas');
+    const ctx = canvas.getContext('2d');
+    let isDrawing = false;
+
+    function resizeCanvas() {
+        const wrapper = canvas.parentElement;
+        const rect = wrapper.getBoundingClientRect();
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = rect.width * ratio;
+        canvas.height = rect.height * ratio;
+        ctx.scale(ratio, ratio);
+        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+    function startDraw(e) { if(e.target === canvas) e.preventDefault(); isDrawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
+    function draw(e) { if (!isDrawing) return; if(e.target === canvas) e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+    function stopDraw() { if(isDrawing) { isDrawing = false; autoSave(); } }
+    canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); 
+    canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseout', stopDraw);
+    canvas.addEventListener('touchstart', startDraw, {passive:false}); canvas.addEventListener('touchmove', draw, {passive:false}); canvas.addEventListener('touchend', stopDraw);
+    function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); autoSave(); }
+    function isCanvasBlank() { const blank = document.createElement('canvas'); blank.width = canvas.width; blank.height = canvas.height; return canvas.toDataURL() === blank.toDataURL(); }
+
+    // 3. 頁面初始化
+    function initPage() {
+        const now = new Date();
+        document.getElementById('checkDate').value = now.toISOString().split('T')[0];
+        renderPanels();
+        loadDraftFromDB();
+        setTimeout(resizeCanvas, 100);
+    }
+
+    function renderPanels() {
+        const container = document.getElementById('panelList'); 
+        container.innerHTML = `<div class="section-title">2. 檢查項目 Checklist</div>`;
+        QUESTIONS.forEach((qData, idx) => {
+            let illustrationHtml = "";
+            if(qData.image) {
+                illustrationHtml = `
+                <div class="illustration-container">
+                    <span class="badge bg-secondary mb-2">參考示意圖</span><br>
+                    <img src="${qData.image}" class="illustration-img" onerror="this.src='https://placehold.co/600x400?text=無示意圖';this.alt='無圖片';" alt="${qData.title} 示意圖">
+                </div>`;
+            }
+            const html = `
+            <div class="panel-row" id="row_${idx}">
+                <div class="item-title">${qData.title}</div>
+                ${illustrationHtml}
+                <div class="btn-check-group">
+                    <input type="radio" class="btn-check-pass" name="q${idx}" id="q${idx}_pass" value="Pass" onchange="checkStatus(${idx}); autoSave()">
+                    <label class="btn-check-label" for="q${idx}_pass">是 (正常)</label>
+                    <input type="radio" class="btn-check-fail" name="q${idx}" id="q${idx}_fail" value="Fail" onchange="checkStatus(${idx}); autoSave()">
+                    <label class="btn-check-label" for="q${idx}_fail">否 (異常)</label>
+                </div>
+                <div style="margin-top:15px;">
+                    <input type="text" id="note_${idx}" placeholder="備註說明 (選填)..." oninput="autoSave()">
+                    <label class="btn btn-outline-secondary w-100" style="margin-top:5px;">
+                        📷 拍攝照片 / 上傳現場圖
+                        <input type="file" id="file_${idx}" accept="image/*" capture="environment" style="display:none" onchange="handleImage(this, ${idx})">
+                    </label>
+                    <div class="preview-container"><img id="preview_${idx}" class="preview-img"></div>
+                </div>
+            </div>`;
+            container.innerHTML += html;
+        });
+    }
+
+    window.checkStatus = function(idx) {
+        const row = document.getElementById(`row_${idx}`);
+        const pass = document.getElementById(`q${idx}_pass`).checked;
+        const fail = document.getElementById(`q${idx}_fail`).checked;
+        row.classList.remove('completed', 'error');
+        if(pass) row.classList.add('completed');
+        if(fail) row.classList.add('error');
+    }
+
+    window.handleImage = function(input, idx) {
+        if(input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = document.getElementById(`preview_${idx}`);
+                img.src = e.target.result; img.style.display = 'inline-block';
+                autoSave();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    // 4. 自動儲存
+    const STORAGE_KEY = "CRANE_DRAFT_V3";
+    let saveTimer; 
+    window.autoSave = function() { clearTimeout(saveTimer); saveTimer = setTimeout(saveToDB, 500); }
+    
+    function saveToDB() {
+        if(!db) return;
+        const basicInfo = {
+            date: document.getElementById('checkDate').value,
+            main: document.getElementById('mainContractor').value,
+            sub: document.getElementById('subContractor').value,
+            insp: document.getElementById('inspectorName').value,
+            point: document.getElementById('liftingPoint').value
+        };
+        const radios = Array.from(document.querySelectorAll('input[type="radio"]:checked')).map(r => r.id);
+        const notes = Array.from(document.querySelectorAll('input[type="text"][id^="note_"]')).reduce((acc, el) => ({...acc, [el.id]: el.value}), {});
+        const images = Array.from(document.querySelectorAll('.preview-img')).reduce((acc, img) => (img.src && img.src.startsWith('data:') ? {...acc, [img.id]: img.src} : acc), {});
+        const data = { id: STORAGE_KEY, basicInfo: basicInfo, radios: radios, notes: notes, images: images, signature: isCanvasBlank() ? null : canvas.toDataURL() };
+        const tx = db.transaction(["drafts"], "readwrite"); tx.objectStore("drafts").put(data);
+        tx.oncomplete = () => { const status = document.getElementById('autoSaveStatus'); status.style.display='inline'; setTimeout(()=> status.style.display='none', 2000); };
+    }
+
+    function loadDraftFromDB() {
+        if(!db) return;
+        db.transaction(["drafts"]).objectStore("drafts").get(STORAGE_KEY).onsuccess = (e) => {
+            const data = e.target.result; if(!data) return;
+            if(data.basicInfo) {
+                document.getElementById('checkDate').value = data.basicInfo.date || "";
+                document.getElementById('mainContractor').value = data.basicInfo.main || "";
+                document.getElementById('subContractor').value = data.basicInfo.sub || "";
+                document.getElementById('inspectorName').value = data.basicInfo.insp || "";
+                document.getElementById('liftingPoint').value = data.basicInfo.point || "";
+            }
+            if(data.radios) { data.radios.forEach(id => { const el = document.getElementById(id); if(el) { el.checked = true; } const idx = id.match(/\d+/)[0]; checkStatus(idx); }); }
+            if(data.notes) Object.keys(data.notes).forEach(k => { const el = document.getElementById(k); if(el) el.value = data.notes[k]; });
+            if(data.images) Object.keys(data.images).forEach(k => { const img = document.getElementById(k); if(img) { img.src = data.images[k]; img.style.display = 'inline-block'; } });
+            if(data.signature) { const i = new Image(); i.src = data.signature; i.onload = () => ctx.drawImage(i,0,0, canvas.width, canvas.height); }
+        };
+    }
+
+    window.clearDraft = function() { if(confirm("確定要清除所有資料重填嗎？")) { db.transaction(["drafts"], "readwrite").objectStore("drafts").delete(STORAGE_KEY); location.reload(); } }
+
+    // 5. 下載 HTML 報告 (單一檔案)
+    window.downloadReport = function() {
+        const main = document.getElementById('mainContractor').value;
+        const sub = document.getElementById('subContractor').value;
+        const insp = document.getElementById('inspectorName').value;
+        const point = document.getElementById('liftingPoint').value;
+        const checkDate = document.getElementById('checkDate').value;
+        
+        if(!main || !sub || !insp || !point) { alert("⚠️ 請填寫完整的「作業基本資料」！"); window.scrollTo(0,0); return; }
+        if(isCanvasBlank()) { alert("⚠️ 請簽名！"); document.getElementById('sig-canvas').classList.add('sig-error'); document.getElementById('sig-section').scrollIntoView(); return; }
+        
+        let errorCount = 0; let firstErrorId = null;
+        QUESTIONS.forEach((_, idx) => {
+            const pass = document.getElementById(`q${idx}_pass`).checked;
+            const fail = document.getElementById(`q${idx}_fail`).checked;
+            if(!pass && !fail) { errorCount++; const row = document.getElementById(`row_${idx}`); row.classList.add('error'); if(!firstErrorId) firstErrorId = `row_${idx}`; }
+        });
+        if(errorCount > 0) { alert(`❌ 尚有 ${errorCount} 個檢查項目未勾選！`); document.getElementById(firstErrorId).scrollIntoView({behavior:'smooth', block:'center'}); return; }
+
+        let reportItemsHtml = ""; 
+        let failCount = 0;
+        QUESTIONS.forEach((qData, idx) => {
+            const isPass = document.getElementById(`q${idx}_pass`).checked;
+            const noteVal = document.getElementById(`note_${idx}`).value;
+            const imgEl = document.getElementById(`preview_${idx}`);
+            if(!isPass) failCount++;
+            
+            const statusHtml = isPass ? '<span class="txt-pass">✔ 合格</span>' : '<span class="txt-fail">✘ 異常</span>';
+            const noteHtml = noteVal ? `<div style="margin-top:2px; font-size:14px; color:#555;">備註：${noteVal}</div>` : "";
+            const imgHtml = (imgEl && imgEl.src && imgEl.style.display !== 'none') ? `<img src="${imgEl.src}" class="report-img-large">` : "";
+
+            reportItemsHtml += `
+            <div class="report-item" style="${!isPass ? 'background-color:#fff5f5;' : ''}">
+                <div class="report-item-head"><span>${qData.title}</span> ${statusHtml}</div>
+                ${noteHtml}
+                ${imgHtml}
+            </div>`;
+        });
+
+        const fullHtml = `
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>起重機檢查報告</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; padding: 40px; background: #fff; color: #000; margin: 0; }
+        .container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .report-header { text-align: center; border-bottom: 2px solid #0d6efd; margin-bottom: 20px; padding-bottom: 10px; }
+        .report-title { font-size: 28px; font-weight: 900; margin: 0; color: #000; }
+        .report-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; border: 1px solid #ddd; padding: 20px; border-radius: 5px; background: #f9f9f9; font-size: 16px; }
+        .report-section-title { font-size: 18px; font-weight: bold; color: #0d6efd; border-left: 5px solid #0d6efd; padding-left: 10px; margin-bottom: 15px; margin-top: 25px; }
+        .report-item { border-bottom: 1px solid #eee; padding: 12px 0; }
+        .report-item-head { font-weight: bold; font-size: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .report-img-large { max-height: 300px; max-width: 100%; border: 1px solid #ccc; display: block; margin: 8px 0; border-radius: 4px; }
+        .report-footer { margin-top: 40px; display: flex; justify-content: space-between; }
+        .report-sig-box { text-align: center; width: 45%; }
+        .report-sig-line { border-top: 1px solid #000; padding-top: 8px; font-weight: bold; margin-top: 5px; font-size: 16px;}
+        .report-sig-img { height: 70px; display: block; margin: 0 auto; }
+        .txt-pass { color: #198754; } .txt-fail { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="report-header"><div class="report-title">🏗️ 起重機作業前自檢表</div></div>
+        <div class="report-info-grid">
+            <div><strong>日期：</strong> ${checkDate}</div>
+            <div><strong>主承商：</strong> ${main}</div>
+            <div><strong>次承商：</strong> ${sub}</div>
+            <div><strong>吊掛點位：</strong> ${point}</div>
+            <div><strong>檢查人員：</strong> ${insp}</div>
+        </div>
+        <div class="report-section-title">檢查結果細項</div>
+        <div>${reportItemsHtml}</div>
+        <div style="margin-top:20px; font-size:18px; font-weight:bold; border-top:2px solid #ccc; padding-top:10px;">
+            總結：${failCount > 0 ? '<span style="color:red">異常 (' + failCount + ' 項) - 請立即改善</span>' : '<span style="color:green">全數合格 - 可開始作業</span>'}
+        </div>
+        <div class="report-footer">
+            <div class="report-sig-box"><img src="${canvas.toDataURL()}" class="report-sig-img"><div class="report-sig-line">檢查人員簽章</div></div>
+            <div class="report-sig-box"><div style="height:70px;"></div><div class="report-sig-line">工地主任/監工複核</div></div>
+        </div>
+    </div>
+</body>
+</html>`;
+
+        const blob = new Blob([fullHtml], {type: "text/html;charset=utf-8"});
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `起重機檢查報告_${checkDate}_${point}.html`;
+        link.click();
+    }
+</script>
+</body>
+</html>
 
