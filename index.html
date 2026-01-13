@@ -221,29 +221,50 @@
         loadDraftFromDB();
         setTimeout(resizeCanvas, 100);
     }
-
+     // ★★★ 渲染卡片邏輯 ★★★
     function renderPanels() {
         const container = document.getElementById('panelList'); 
         container.innerHTML = `<div class="section-title">2. 檢查項目 Checklist</div>`;
+       
         QUESTIONS.forEach((qData, idx) => {
             let illustrationHtml = "";
-            if(qData.image) {
+            // 普通題目若有圖則顯示
+            if(qData.image && qData.specialType !== "rigging") {
                 illustrationHtml = `
                 <div class="illustration-container">
                     <span class="badge bg-secondary mb-2">參考示意圖</span><br>
                     <img src="${qData.image}" class="illustration-img" onerror="this.src='https://placehold.co/600x400?text=無示意圖';this.alt='無圖片';" alt="${qData.title} 示意圖">
                 </div>`;
             }
+
+            let specialMenuHtml = "";
+            if (qData.specialType === "rigging") {
+                specialMenuHtml = `
+                <div class="rigging-select-container">
+                    <label style="color:#0d6efd;">➤ 1. 請選擇吊掛工具種類：</label>
+                    <select id="rigging_type_select" onchange="updateRiggingCriteria(this.value); autoSave();">
+                        <option value="" disabled selected>-- 請選擇 --</option>
+                        <option value="wire_rope">鋼索 (Wire Rope)</option>
+                        <option value="chain">吊鏈 (Chain)</option>
+                        <option value="sling">纖維吊帶 (Synthetic Sling)</option>
+                    </select>
+                    <div id="rigging_sub_questions_container" style="margin-top:10px;"></div>
+                </div>`;
+            }
+
             const html = `
             <div class="panel-row" id="row_${idx}">
                 <div class="item-title">${qData.title}</div>
+                ${specialMenuHtml}
                 ${illustrationHtml}
+                
                 <div class="btn-check-group">
                     <input type="radio" class="btn-check-pass" name="q${idx}" id="q${idx}_pass" value="Pass" onchange="checkStatus(${idx}); autoSave()">
-                    <label class="btn-check-label" for="q${idx}_pass">是 (正常)</label>
+                     <label class="btn-check-label" for="q${idx}_pass">總結：合格</label>
                     <input type="radio" class="btn-check-fail" name="q${idx}" id="q${idx}_fail" value="Fail" onchange="checkStatus(${idx}); autoSave()">
-                    <label class="btn-check-label" for="q${idx}_fail">否 (異常)</label>
+                    <label class="btn-check-label" for="q${idx}_fail">總結：不合格</label>
                 </div>
+                
                 <div style="margin-top:15px;">
                     <input type="text" id="note_${idx}" placeholder="備註說明 (選填)..." oninput="autoSave()">
                     <label class="btn btn-outline-secondary w-100" style="margin-top:5px;">
@@ -256,8 +277,40 @@
             container.innerHTML += html;
         });
     }
+    // ★★★ 核心：更新子題目與圖片 ★★★
+    window.updateRiggingCriteria = function(typeKey) {
+        const container = document.getElementById('rigging_sub_questions_container');
+        container.innerHTML = ""; 
 
-    window.checkStatus = function(idx) {
+        if (RIGGING_TYPES[typeKey]) {
+            const subQuestions = RIGGING_TYPES[typeKey].subQuestions;
+            subQuestions.forEach((subQ, subIdx) => {
+                // 處理圖片 (如果沒有就用預設)
+                const imgSrc = subQ.image || "";
+                let imgHtml = "";
+                 if (imgSrc) {
+                    imgHtml = `
+                    <div class="sub-q-img-box">
+                        <img src="${imgSrc}" class="sub-q-img" onerror="this.src='https://placehold.co/400x200?text=標準圖';this.alt='示意圖'">
+                    </div>`;
+                }
+
+                const subHtml = `
+                <div class="sub-question-row">
+                    <div class="sub-q-title">${subQ.text}</div>
+                    ${imgHtml}
+                    <div class="sub-btn-group">
+                        <input type="radio" class="sub-btn-pass" name="q0_sub${subIdx}" id="q0_sub${subIdx}_pass" value="Pass" onchange="autoSave()">
+                        <label class="sub-btn-label" for="q0_sub${subIdx}_pass">是</label>
+                        <input type="radio" class="sub-btn-fail" name="q0_sub${subIdx}" id="q0_sub${subIdx}_fail" value="Fail" onchange="autoSave()">
+                        <label class="sub-btn-label" for="q0_sub${subIdx}_fail">否</label>
+                    </div>
+                </div>`;
+                container.insertAdjacentHTML('beforeend', subHtml);
+            });
+        }
+    }
+window.checkStatus = function(idx) {
         const row = document.getElementById(`row_${idx}`);
         const pass = document.getElementById(`q${idx}_pass`).checked;
         const fail = document.getElementById(`q${idx}_fail`).checked;
@@ -277,7 +330,7 @@
             reader.readAsDataURL(input.files[0]);
         }
     }
-
+     
     // 4. 自動儲存
     const STORAGE_KEY = "CRANE_DRAFT_V3";
     let saveTimer; 
