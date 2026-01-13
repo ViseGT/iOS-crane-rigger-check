@@ -182,7 +182,7 @@
                     label: "3. 纖維吊帶/繩", 
                     items: [
                         { id: "f1", title: "1-1. 纖維吊帶/繩是否無切痕或破損?", image: "3-1.png" },
-                        { id: "f2", title: "1-2. 外觀標示是否清楚辨識?"}
+                        { id: "f2", title: "1-2. 外觀標示是否清楚辨識?", image: "" }
                     ]
                 }
             }
@@ -196,22 +196,33 @@
                 { id: "h2", title: "2.2 吊鉤是否無開口或變形?", image: "2.png" }
             ]
         },
-        // 可繼續新增其他一般題目
+        // === [新增] 3. 作業前綜合關鍵確認 ===
+        {
+            type: "group",
+            id: "cat_pre_check",
+            title: "3. 吊掛作業前六不吊",
+            items: [
+                { id: "p1", title: "3-1. 【指揮與資格】現場是否已指派專責指揮人員，且您與操作手是否皆已具備合格證照？", image: "" },
+                { id: "p2", title: "3-2. 【文件許可】施工申請單與作業許可是否已完成簽核，且現場人員是否已充分了解危害告知內容？", image: "" },
+                { id: "p3", title: "3-3. 【設備自檢】鋼索、吊鉤及防脫落裝置是否經檢查確認功能正常（無斷絲變形），且是否已確實勾選每日自檢表？", image: "" },
+                { id: "p4", title: "3-4. 【荷重確認】是否已確認吊掛物重量在起重機額定荷重範圍內，且吊具強度是否足夠？", image: "" },
+                { id: "p5", title: "3-5. 【區域管制】吊掛作業區域是否已圍設警示帶，且吊掛路徑下方是否已確實淨空無人員逗留？", image: "" },
+                { id: "p6", title: "3-6. 【機具穩定】起重機外伸撐座是否已完全伸出並鋪設墊板，且停放地面是否水平堅固？", image: "" }
+            ]
+        },
+        // === [順延] 原本的第 3 題變更為第 4 題 ===
         {
             type: "simple",
             id: "g1",
-            title: "3. 吊掛作業前是否完成試吊333運動？？",
+            title: "4. 吊掛作業前是否完成試吊333運動？？",
             image: "3.png"
         },
-      {
-            type: "group",
+        // === [順延] 原本的第 4 題變更為第 5 題 ===
+        {
+            type: "simple",
             id: "cat_env_load",
-            title: "4. 作業環境與荷重確認",
-            items: [
-                { id: "e1", title: "4-1. 確認吊掛路徑無遮擋、無障礙物?"},
-                { id: "e2", title: "4-2. 氣候條件符合吊掛作業要求?" },
-                { id: "e3", title: "4-3. 確定荷重與額定荷重符合規範?" }
-            ]
+            title: "5. 氣候條件符合吊掛作業要求?",
+            image: ""
         }
     ];
 
@@ -224,8 +235,8 @@
     if (isIos() && !isInStandaloneMode()) setTimeout(() => document.getElementById('ios-install-prompt').style.display = 'block', 2000);
 
     // === 3. IndexedDB 資料庫 ===
-    const DB_NAME = "CraneCheckDB_V4"; // 升級版本號
-    const STORAGE_KEY = "CRANE_DRAFT_V4";
+    const DB_NAME = "CraneCheckDB_V5"; // 升級版本號以避免舊資料衝突
+    const STORAGE_KEY = "CRANE_DRAFT_V5";
     let db;
     const request = indexedDB.open(DB_NAME, 1);
     request.onupgradeneeded = (e) => { db = e.target.result; if(!db.objectStoreNames.contains("drafts")) db.createObjectStore("drafts", { keyPath: "id" }); };
@@ -250,7 +261,7 @@
     function clearSignature() { ctx.clearRect(0,0,canvas.width,canvas.height); autoSave(); }
     function isCanvasBlank() { const blank=document.createElement('canvas'); blank.width=canvas.width; blank.height=canvas.height; return canvas.toDataURL()===blank.toDataURL(); }
 
-    // === 5. 頁面初始化與渲染 (核心修改) ===
+    // === 5. 頁面初始化與渲染 ===
     function initPage() {
         const now = new Date();
         document.getElementById('checkDate').value = now.toISOString().split('T')[0];
