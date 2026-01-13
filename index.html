@@ -24,7 +24,6 @@
             background-color: #e9ecef; 
             font-family: -apple-system, "Microsoft JhengHei", "Heiti TC", sans-serif; 
             color: #333; 
-            /* 防止 iOS 橡皮筋迴彈效果 */
             overscroll-behavior-y: none;
         }
         
@@ -42,10 +41,27 @@
             width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; 
             font-size: 16px; margin-bottom: 15px; background: #fff; 
         }
+        
+        /* 檢查項目樣式 */
         .panel-row { 
             background: white; margin-bottom: 15px; padding: 15px; border-radius: 12px; 
             box-shadow: 0 2px 5px rgba(0,0,0,0.05); border-left: 6px solid #ccc; 
+            transition: all 0.3s;
         }
+        /* 題組樣式 */
+        .group-box {
+            background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 12px; margin-bottom: 20px;
+        }
+        .group-title {
+            color: #0d6efd; font-weight: bold; font-size: 1.1rem; border-bottom: 2px solid #dee2e6; 
+            padding-bottom: 8px; margin-bottom: 15px;
+        }
+        /* 下拉選單樣式 */
+        .select-box {
+            border-left: 5px solid #0d6efd; background: #fff; padding: 15px; border-radius: 12px; margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
         .panel-row.completed { border-left-color: #198754; } 
         .panel-row.error { border-left-color: #dc3545; background-color: #fff8f8; }
         .item-title { font-weight: bold; font-size: 1.1rem; color: #222; margin-bottom: 10px; line-height: 1.4; }
@@ -84,14 +100,11 @@
         .btn-main { background: linear-gradient(135deg, #0d6efd, #0b5ed7); }
         .btn-warn { background: linear-gradient(135deg, #dc3545, #b02a37); font-size: 0.9rem; min-width: 100px; }
         
-        /* 安裝提示 (iOS用) */
         #ios-install-prompt {
-            display: none;
-            position: fixed; bottom: 0; left: 0; width: 100%;
+            display: none; position: fixed; bottom: 0; left: 0; width: 100%;
             background: white; padding: 20px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             z-index: 2000; text-align: center;
         }
-        #ios-install-prompt p { margin-bottom: 10px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -137,83 +150,103 @@
 </div>
 
 <div id="ios-install-prompt">
-    <p>📲 <strong>安裝到手機：</strong><br>點擊下方分享按鈕 <img src="https://img.icons8.com/ios-glyphs/30/000000/share-rounded.png" style="width:20px; vertical-align:middle;">，然後選擇「加入主畫面」</p>
+    <p>📲 <strong>安裝到手機：</strong><br>點擊下方分享按鈕，然後選擇「加入主畫面」</p>
     <button class="btn btn-sm btn-outline-dark" onclick="document.getElementById('ios-install-prompt').style.display='none'">關閉</button>
 </div>
 
 <script>
-    // 註冊 Service Worker (PWA 核心)
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(reg => console.log('SW registered!', reg))
-                .catch(err => console.log('SW failed', err));
-        });
-    }
-
-    // 檢測是否為 iOS 且未安裝，顯示提示
-    const isIos = () => {
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        return /iphone|ipad|ipod/.test(userAgent);
-    }
-    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
-
-    if (isIos() && !isInStandaloneMode()) {
-        // 稍微延遲顯示提示，避免干擾
-        setTimeout(() => {
-            document.getElementById('ios-install-prompt').style.display = 'block';
-        }, 2000);
-    }
-
-    // 1. 資料設定
-    const QUESTIONS = [
-        { title: "1. 吊掛鉤頭插銷是否完全插入？", image: "demo1.jpg" },
-        { title: "2. 吊鉤防滑舌片是否無變形？", image: "demo2.jpg" },
-        { title: "3. 過捲預防裝置是否功能正常？", image: "" },
-        { title: "4. 吊掛索具是否無斷絲、斷股？", image: "" },
-        { title: "5. 作業範圍內是否已完成人員淨空？", image: "" },
-        { title: "6. 吊掛作業是否由合格吊掛手指揮？", image: "" }
+    // === 1. 資料設定 (支援下拉選單與題組) ===
+    // 圖片請填寫實際檔案路徑，若無圖片則留空
+    const CHECK_CONFIG = [
+        {
+            type: "selection",
+            id: "cat_rigging",
+            title: "1. 吊掛索具檢點 (請選擇類型)",
+            options: {
+                "none": { label: "-- 請選擇索具類型 --", items: [] },
+                "wire": { 
+                    label: "1. 鋼索", 
+                    items: [
+                        { id: "w1", title: "1-1. 鋼索斷絲是否無達到10%素線截斷?", image: "wire_cut.jpg" },
+                        { id: "w2", title: "1-2. 鋼索磨損與變形是否達到直徑減少7%?", image: "wire_wear.jpg" }
+                    ]
+                },
+                "chain": { 
+                    label: "2. 吊鏈", 
+                    items: [
+                        { id: "c1", title: "2-1. 吊鏈延伸長度達5%或斷面直徑減少10%?", image: "chain_stretch.jpg" },
+                        { id: "c2", title: "2-2. 吊鏈是否有龜裂?", image: "chain_crack.jpg" }
+                    ]
+                },
+                "fiber": { 
+                    label: "3. 纖維吊帶/繩", 
+                    items: [
+                        { id: "f1", title: "3-1. 纖維吊帶/繩是否有切痕或破損?", image: "fiber_cut.jpg" },
+                        { id: "f2", title: "3-2. 外觀標示是否清楚辨識?", image: "fiber_label.jpg" }
+                    ]
+                }
+            }
+        },
+        {
+            type: "group",
+            id: "cat_hook",
+            title: "2. 吊鉤與配件",
+            items: [
+                { id: "h1", title: "2.1 吊掛鉤頭插銷是否完全插入?", image: "hook_latch.jpg" },
+                { id: "h2", title: "2.2 吊鉤是否無開口或變形?", image: "hook_open.jpg" }
+            ]
+        },
+        // 可繼續新增其他一般題目
+        {
+            type: "simple",
+            id: "g1",
+            title: "3. 過捲預防裝置是否功能正常？",
+            image: ""
+        },
+        {
+            type: "simple",
+            id: "g2",
+            title: "4. 作業範圍內是否已完成人員淨空？",
+            image: ""
+        }
     ];
 
-    const DB_NAME = "CraneCheckDB_V3"; 
-    const DB_VERSION = 1; 
+    // === 2. Service Worker 與 iOS 判斷 ===
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW failed', err)); });
+    }
+    const isIos = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    const isInStandaloneMode = () => ('standalone' in window.navigator) && (window.navigator.standalone);
+    if (isIos() && !isInStandaloneMode()) setTimeout(() => document.getElementById('ios-install-prompt').style.display = 'block', 2000);
+
+    // === 3. IndexedDB 資料庫 ===
+    const DB_NAME = "CraneCheckDB_V4"; // 升級版本號
+    const STORAGE_KEY = "CRANE_DRAFT_V4";
     let db;
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(DB_NAME, 1);
     request.onupgradeneeded = (e) => { db = e.target.result; if(!db.objectStoreNames.contains("drafts")) db.createObjectStore("drafts", { keyPath: "id" }); };
     request.onsuccess = (e) => { db = e.target.result; initPage(); };
 
-    // 2. 簽名板
+    // === 4. 簽名板邏輯 ===
     const canvas = document.getElementById('sig-canvas');
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
-
     function resizeCanvas() {
-        const wrapper = canvas.parentElement;
-        const rect = wrapper.getBoundingClientRect();
-        const ratio = Math.max(window.devicePixelRatio || 1, 1);
-        canvas.width = rect.width * ratio;
-        canvas.height = rect.height * ratio;
-        ctx.scale(ratio, ratio);
-        ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
+        const wrapper = canvas.parentElement; const rect = wrapper.getBoundingClientRect(); const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = rect.width * ratio; canvas.height = rect.height * ratio;
+        ctx.scale(ratio, ratio); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000';
     }
     window.addEventListener('resize', resizeCanvas);
-
-    function getPos(e) {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-    function startDraw(e) { if(e.target === canvas) e.preventDefault(); isDrawing = true; const pos = getPos(e); ctx.beginPath(); ctx.moveTo(pos.x, pos.y); }
-    function draw(e) { if (!isDrawing) return; if(e.target === canvas) e.preventDefault(); const pos = getPos(e); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
-    function stopDraw() { if(isDrawing) { isDrawing = false; autoSave(); } }
-    canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); 
-    canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseout', stopDraw);
+    function getPos(e) { const rect = canvas.getBoundingClientRect(); const cx = e.touches ? e.touches[0].clientX : e.clientX; const cy = e.touches ? e.touches[0].clientY : e.clientY; return { x: cx - rect.left, y: cy - rect.top }; }
+    function startDraw(e) { if(e.target===canvas)e.preventDefault(); isDrawing=true; const pos=getPos(e); ctx.beginPath(); ctx.moveTo(pos.x,pos.y); }
+    function draw(e) { if(!isDrawing)return; if(e.target===canvas)e.preventDefault(); const pos=getPos(e); ctx.lineTo(pos.x,pos.y); ctx.stroke(); }
+    function stopDraw() { if(isDrawing){ isDrawing=false; autoSave(); } }
+    canvas.addEventListener('mousedown', startDraw); canvas.addEventListener('mousemove', draw); canvas.addEventListener('mouseup', stopDraw); canvas.addEventListener('mouseout', stopDraw);
     canvas.addEventListener('touchstart', startDraw, {passive:false}); canvas.addEventListener('touchmove', draw, {passive:false}); canvas.addEventListener('touchend', stopDraw);
-    function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); autoSave(); }
-    function isCanvasBlank() { const blank = document.createElement('canvas'); blank.width = canvas.width; blank.height = canvas.height; return canvas.toDataURL() === blank.toDataURL(); }
+    function clearSignature() { ctx.clearRect(0,0,canvas.width,canvas.height); autoSave(); }
+    function isCanvasBlank() { const blank=document.createElement('canvas'); blank.width=canvas.width; blank.height=canvas.height; return canvas.toDataURL()===blank.toDataURL(); }
 
-    // 3. 頁面初始化
+    // === 5. 頁面初始化與渲染 (核心修改) ===
     function initPage() {
         const now = new Date();
         document.getElementById('checkDate').value = now.toISOString().split('T')[0];
@@ -221,118 +254,114 @@
         loadDraftFromDB();
         setTimeout(resizeCanvas, 100);
     }
-     // ★★★ 渲染卡片邏輯 ★★★
+
     function renderPanels() {
         const container = document.getElementById('panelList'); 
         container.innerHTML = `<div class="section-title">2. 檢查項目 Checklist</div>`;
-       
-        QUESTIONS.forEach((qData, idx) => {
-            let illustrationHtml = "";
-            // 普通題目若有圖則顯示
-            if(qData.image && qData.specialType !== "rigging") {
-                illustrationHtml = `
-                <div class="illustration-container">
-                    <span class="badge bg-secondary mb-2">參考示意圖</span><br>
-                    <img src="${qData.image}" class="illustration-img" onerror="this.src='https://placehold.co/600x400?text=無示意圖';this.alt='無圖片';" alt="${qData.title} 示意圖">
-                </div>`;
-            }
-
-            let specialMenuHtml = "";
-            if (qData.specialType === "rigging") {
-                specialMenuHtml = `
-                <div class="rigging-select-container">
-                    <label style="color:#0d6efd;">➤ 1. 請選擇吊掛工具種類：</label>
-                    <select id="rigging_type_select" onchange="updateRiggingCriteria(this.value); autoSave();">
-                        <option value="" disabled selected>-- 請選擇 --</option>
-                        <option value="wire_rope">鋼索 (Wire Rope)</option>
-                        <option value="chain">吊鏈 (Chain)</option>
-                        <option value="sling">纖維吊帶 (Synthetic Sling)</option>
+        
+        CHECK_CONFIG.forEach((config) => {
+            let html = "";
+            
+            // A. 下拉選單類型
+            if(config.type === "selection") {
+                let optionsHtml = Object.keys(config.options).map(key => 
+                    `<option value="${key}">${config.options[key].label}</option>`
+                ).join('');
+                
+                html += `
+                <div class="select-box">
+                    <label style="font-size:1.1rem; color:#000;">${config.title}</label>
+                    <select id="${config.id}_select" onchange="handleSelectChange('${config.id}')" style="margin-bottom:15px; border:2px solid #0d6efd;">
+                        ${optionsHtml}
                     </select>
-                    <div id="rigging_sub_questions_container" style="margin-top:10px;"></div>
+                    ${Object.keys(config.options).map(key => {
+                        return `<div id="${config.id}_group_${key}" class="sub-group-container" style="display:none;">
+                            ${config.options[key].items.map(item => createQuestionHtml(item)).join('')}
+                        </div>`;
+                    }).join('')}
+                </div>`;
+            } 
+            // B. 題組類型
+            else if (config.type === "group") {
+                html += `
+                <div class="group-box">
+                    <div class="group-title">${config.title}</div>
+                    ${config.items.map(item => createQuestionHtml(item)).join('')}
                 </div>`;
             }
-
-            const html = `
-            <div class="panel-row" id="row_${idx}">
-                <div class="item-title">${qData.title}</div>
-                ${specialMenuHtml}
-                ${illustrationHtml}
-                
-                <div class="btn-check-group">
-                    <input type="radio" class="btn-check-pass" name="q${idx}" id="q${idx}_pass" value="Pass" onchange="checkStatus(${idx}); autoSave()">
-                     <label class="btn-check-label" for="q${idx}_pass">總結：合格</label>
-                    <input type="radio" class="btn-check-fail" name="q${idx}" id="q${idx}_fail" value="Fail" onchange="checkStatus(${idx}); autoSave()">
-                    <label class="btn-check-label" for="q${idx}_fail">總結：不合格</label>
-                </div>
-                
-                <div style="margin-top:15px;">
-                    <input type="text" id="note_${idx}" placeholder="備註說明 (選填)..." oninput="autoSave()">
-                    <label class="btn btn-outline-secondary w-100" style="margin-top:5px;">
-                        📷 拍攝照片 / 上傳現場圖
-                        <input type="file" id="file_${idx}" accept="image/*" capture="environment" style="display:none" onchange="handleImage(this, ${idx})">
-                    </label>
-                    <div class="preview-container"><img id="preview_${idx}" class="preview-img"></div>
-                </div>
-            </div>`;
+            // C. 一般單題
+            else {
+                html += createQuestionHtml({id: config.id, title: config.title, image: config.image});
+            }
             container.innerHTML += html;
         });
     }
-    // ★★★ 核心：更新子題目與圖片 ★★★
-    window.updateRiggingCriteria = function(typeKey) {
-        const container = document.getElementById('rigging_sub_questions_container');
-        container.innerHTML = ""; 
 
-        if (RIGGING_TYPES[typeKey]) {
-            const subQuestions = RIGGING_TYPES[typeKey].subQuestions;
-            subQuestions.forEach((subQ, subIdx) => {
-                // 處理圖片 (如果沒有就用預設)
-                const imgSrc = subQ.image || "";
-                let imgHtml = "";
-                 if (imgSrc) {
-                    imgHtml = `
-                    <div class="sub-q-img-box">
-                        <img src="${imgSrc}" class="sub-q-img" onerror="this.src='https://placehold.co/400x200?text=標準圖';this.alt='示意圖'">
-                    </div>`;
-                }
-
-                const subHtml = `
-                <div class="sub-question-row">
-                    <div class="sub-q-title">${subQ.text}</div>
-                    ${imgHtml}
-                    <div class="sub-btn-group">
-                        <input type="radio" class="sub-btn-pass" name="q0_sub${subIdx}" id="q0_sub${subIdx}_pass" value="Pass" onchange="autoSave()">
-                        <label class="sub-btn-label" for="q0_sub${subIdx}_pass">是</label>
-                        <input type="radio" class="sub-btn-fail" name="q0_sub${subIdx}" id="q0_sub${subIdx}_fail" value="Fail" onchange="autoSave()">
-                        <label class="sub-btn-label" for="q0_sub${subIdx}_fail">否</label>
-                    </div>
-                </div>`;
-                container.insertAdjacentHTML('beforeend', subHtml);
-            });
+    // 產生單一題目的 HTML (共用函數)
+    function createQuestionHtml(item) {
+        let illustrationHtml = "";
+        if(item.image) {
+            illustrationHtml = `
+            <div class="illustration-container">
+                <span class="badge bg-secondary mb-1">參考示意圖</span><br>
+                <img src="${item.image}" class="illustration-img" onerror="this.style.display='none'" alt="示意圖">
+            </div>`;
         }
+        return `
+        <div class="panel-row" id="row_${item.id}" data-id="${item.id}">
+            <div class="item-title">${item.title}</div>
+            ${illustrationHtml}
+            <div class="btn-check-group">
+                <input type="radio" class="btn-check-pass" name="${item.id}" id="${item.id}_pass" value="Pass" onchange="checkStatus('${item.id}'); autoSave()">
+                <label class="btn-check-label" for="${item.id}_pass">是 (正常)</label>
+                <input type="radio" class="btn-check-fail" name="${item.id}" id="${item.id}_fail" value="Fail" onchange="checkStatus('${item.id}'); autoSave()">
+                <label class="btn-check-label" for="${item.id}_fail">否 (異常)</label>
+            </div>
+            <div style="margin-top:10px;">
+                <input type="text" id="note_${item.id}" placeholder="備註說明..." oninput="autoSave()" style="margin-bottom:5px;">
+                <label class="btn btn-sm btn-outline-secondary w-100">
+                    📷 拍攝照片 / 上傳
+                    <input type="file" id="file_${item.id}" accept="image/*" capture="environment" style="display:none" onchange="handleImage(this, '${item.id}')">
+                </label>
+                <div class="preview-container"><img id="preview_${item.id}" class="preview-img"></div>
+            </div>
+        </div>`;
     }
-window.checkStatus = function(idx) {
-        const row = document.getElementById(`row_${idx}`);
-        const pass = document.getElementById(`q${idx}_pass`).checked;
-        const fail = document.getElementById(`q${idx}_fail`).checked;
+
+    // 處理下拉選單切換
+    window.handleSelectChange = function(groupId) {
+        const select = document.getElementById(`${groupId}_select`);
+        const selectedValue = select.value;
+        // 隱藏該群組下所有子區塊
+        document.querySelectorAll(`[id^="${groupId}_group_"]`).forEach(el => el.style.display = 'none');
+        // 顯示選中的區塊
+        const target = document.getElementById(`${groupId}_group_${selectedValue}`);
+        if(target) target.style.display = 'block';
+        autoSave();
+    }
+
+    window.checkStatus = function(id) {
+        const row = document.getElementById(`row_${id}`);
+        const pass = document.getElementById(`${id}_pass`).checked;
+        const fail = document.getElementById(`${id}_fail`).checked;
         row.classList.remove('completed', 'error');
         if(pass) row.classList.add('completed');
         if(fail) row.classList.add('error');
     }
 
-    window.handleImage = function(input, idx) {
+    window.handleImage = function(input, id) {
         if(input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = document.getElementById(`preview_${idx}`);
+                const img = document.getElementById(`preview_${id}`);
                 img.src = e.target.result; img.style.display = 'inline-block';
                 autoSave();
             };
             reader.readAsDataURL(input.files[0]);
         }
     }
-     
-    // 4. 自動儲存
-    const STORAGE_KEY = "CRANE_DRAFT_V3";
+
+    // === 6. 自動儲存與讀取 ===
     let saveTimer; 
     window.autoSave = function() { clearTimeout(saveTimer); saveTimer = setTimeout(saveToDB, 500); }
     
@@ -343,11 +372,19 @@ window.checkStatus = function(idx) {
             main: document.getElementById('mainContractor').value,
             sub: document.getElementById('subContractor').value,
             insp: document.getElementById('inspectorName').value,
-            point: document.getElementById('liftingPoint').value
+            point: document.getElementById('liftingPoint').value,
+            selections: {}
         };
+        // 儲存下拉選單狀態
+        CHECK_CONFIG.filter(c => c.type === 'selection').forEach(c => {
+            const el = document.getElementById(`${c.id}_select`);
+            if(el) basicInfo.selections[c.id] = el.value;
+        });
+
         const radios = Array.from(document.querySelectorAll('input[type="radio"]:checked')).map(r => r.id);
         const notes = Array.from(document.querySelectorAll('input[type="text"][id^="note_"]')).reduce((acc, el) => ({...acc, [el.id]: el.value}), {});
         const images = Array.from(document.querySelectorAll('.preview-img')).reduce((acc, img) => (img.src && img.src.startsWith('data:') ? {...acc, [img.id]: img.src} : acc), {});
+        
         const data = { id: STORAGE_KEY, basicInfo: basicInfo, radios: radios, notes: notes, images: images, signature: isCanvasBlank() ? null : canvas.toDataURL() };
         const tx = db.transaction(["drafts"], "readwrite"); tx.objectStore("drafts").put(data);
         tx.oncomplete = () => { const status = document.getElementById('autoSaveStatus'); status.style.display='inline'; setTimeout(()=> status.style.display='none', 2000); };
@@ -363,8 +400,15 @@ window.checkStatus = function(idx) {
                 document.getElementById('subContractor').value = data.basicInfo.sub || "";
                 document.getElementById('inspectorName').value = data.basicInfo.insp || "";
                 document.getElementById('liftingPoint').value = data.basicInfo.point || "";
+                // 恢復下拉選單並觸發顯示
+                if(data.basicInfo.selections) {
+                    Object.keys(data.basicInfo.selections).forEach(key => {
+                        const select = document.getElementById(`${key}_select`);
+                        if(select) { select.value = data.basicInfo.selections[key]; handleSelectChange(key); }
+                    });
+                }
             }
-            if(data.radios) { data.radios.forEach(id => { const el = document.getElementById(id); if(el) { el.checked = true; } const idx = id.match(/\d+/)[0]; checkStatus(idx); }); }
+            if(data.radios) { data.radios.forEach(id => { const el = document.getElementById(id); if(el) { el.checked = true; const rowId = id.replace(/_(pass|fail)$/, ''); checkStatus(rowId); } }); }
             if(data.notes) Object.keys(data.notes).forEach(k => { const el = document.getElementById(k); if(el) el.value = data.notes[k]; });
             if(data.images) Object.keys(data.images).forEach(k => { const img = document.getElementById(k); if(img) { img.src = data.images[k]; img.style.display = 'inline-block'; } });
             if(data.signature) { const i = new Image(); i.src = data.signature; i.onload = () => ctx.drawImage(i,0,0, canvas.width, canvas.height); }
@@ -373,31 +417,31 @@ window.checkStatus = function(idx) {
 
     window.clearDraft = function() { if(confirm("確定要清除所有資料重填嗎？")) { db.transaction(["drafts"], "readwrite").objectStore("drafts").delete(STORAGE_KEY); location.reload(); } }
 
-    // 5. 下載 HTML 報告 (單一檔案)
+    // === 7. 下載報告 (過濾不可見項目) ===
     window.downloadReport = function() {
-        const main = document.getElementById('mainContractor').value;
-        const sub = document.getElementById('subContractor').value;
-        const insp = document.getElementById('inspectorName').value;
-        const point = document.getElementById('liftingPoint').value;
-        const checkDate = document.getElementById('checkDate').value;
-        
-        if(!main || !sub || !insp || !point) { alert("⚠️ 請填寫完整的「作業基本資料」！"); window.scrollTo(0,0); return; }
+        const basicFields = ['mainContractor', 'subContractor', 'inspectorName', 'liftingPoint', 'checkDate'];
+        if(basicFields.some(id => !document.getElementById(id).value)) { alert("⚠️ 請填寫完整的「作業基本資料」！"); window.scrollTo(0,0); return; }
         if(isCanvasBlank()) { alert("⚠️ 請簽名！"); document.getElementById('sig-canvas').classList.add('sig-error'); document.getElementById('sig-section').scrollIntoView(); return; }
         
-        let errorCount = 0; let firstErrorId = null;
-        QUESTIONS.forEach((_, idx) => {
-            const pass = document.getElementById(`q${idx}_pass`).checked;
-            const fail = document.getElementById(`q${idx}_fail`).checked;
-            if(!pass && !fail) { errorCount++; const row = document.getElementById(`row_${idx}`); row.classList.add('error'); if(!firstErrorId) firstErrorId = `row_${idx}`; }
+        // 僅選取目前可見的題目 (過濾掉下拉選單未選中的)
+        const visibleRows = Array.from(document.querySelectorAll('.panel-row')).filter(row => row.offsetParent !== null);
+        
+        let errorCount = 0; let firstErrorRow = null;
+        visibleRows.forEach(row => {
+            const id = row.getAttribute('data-id');
+            const pass = document.getElementById(`${id}_pass`).checked;
+            const fail = document.getElementById(`${id}_fail`).checked;
+            if(!pass && !fail) { errorCount++; row.classList.add('error'); if(!firstErrorRow) firstErrorRow = row; }
         });
-        if(errorCount > 0) { alert(`❌ 尚有 ${errorCount} 個檢查項目未勾選！`); document.getElementById(firstErrorId).scrollIntoView({behavior:'smooth', block:'center'}); return; }
+        if(errorCount > 0) { alert(`❌ 尚有 ${errorCount} 個檢查項目未勾選！`); firstErrorRow.scrollIntoView({behavior:'smooth', block:'center'}); return; }
 
-        let reportItemsHtml = ""; 
-        let failCount = 0;
-        QUESTIONS.forEach((qData, idx) => {
-            const isPass = document.getElementById(`q${idx}_pass`).checked;
-            const noteVal = document.getElementById(`note_${idx}`).value;
-            const imgEl = document.getElementById(`preview_${idx}`);
+        let reportItemsHtml = ""; let failCount = 0;
+        visibleRows.forEach(row => {
+            const id = row.getAttribute('data-id');
+            const title = row.querySelector('.item-title').innerText;
+            const isPass = document.getElementById(`${id}_pass`).checked;
+            const noteVal = document.getElementById(`note_${id}`).value;
+            const imgEl = document.getElementById(`preview_${id}`);
             if(!isPass) failCount++;
             
             const statusHtml = isPass ? '<span class="txt-pass">✔ 合格</span>' : '<span class="txt-fail">✘ 異常</span>';
@@ -406,18 +450,18 @@ window.checkStatus = function(idx) {
 
             reportItemsHtml += `
             <div class="report-item" style="${!isPass ? 'background-color:#fff5f5;' : ''}">
-                <div class="report-item-head"><span>${qData.title}</span> ${statusHtml}</div>
-                ${noteHtml}
-                ${imgHtml}
+                <div class="report-item-head"><span>${title}</span> ${statusHtml}</div>
+                ${noteHtml} ${imgHtml}
             </div>`;
         });
 
-        const fullHtml = `
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <title>起重機檢查報告</title>
+        const main = document.getElementById('mainContractor').value;
+        const sub = document.getElementById('subContractor').value;
+        const insp = document.getElementById('inspectorName').value;
+        const point = document.getElementById('liftingPoint').value;
+        const checkDate = document.getElementById('checkDate').value;
+        
+        const fullHtml = `<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><title>起重機檢查報告</title>
     <style>
         body { font-family: "Microsoft JhengHei", "Heiti TC", sans-serif; padding: 40px; background: #fff; color: #000; margin: 0; }
         .container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -433,9 +477,7 @@ window.checkStatus = function(idx) {
         .report-sig-line { border-top: 1px solid #000; padding-top: 8px; font-weight: bold; margin-top: 5px; font-size: 16px;}
         .report-sig-img { height: 70px; display: block; margin: 0 auto; }
         .txt-pass { color: #198754; } .txt-fail { color: #dc3545; }
-    </style>
-</head>
-<body>
+    </style></head><body>
     <div class="container">
         <div class="report-header"><div class="report-title">🏗️ 起重機作業前自檢表</div></div>
         <div class="report-info-grid">
@@ -454,9 +496,7 @@ window.checkStatus = function(idx) {
             <div class="report-sig-box"><img src="${canvas.toDataURL()}" class="report-sig-img"><div class="report-sig-line">檢查人員簽章</div></div>
             <div class="report-sig-box"><div style="height:70px;"></div><div class="report-sig-line">工地主任/監工複核</div></div>
         </div>
-    </div>
-</body>
-</html>`;
+    </div></body></html>`;
 
         const blob = new Blob([fullHtml], {type: "text/html;charset=utf-8"});
         const link = document.createElement("a");
@@ -467,4 +507,3 @@ window.checkStatus = function(idx) {
 </script>
 </body>
 </html>
-
